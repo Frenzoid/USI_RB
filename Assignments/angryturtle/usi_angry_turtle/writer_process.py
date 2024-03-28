@@ -10,10 +10,15 @@ from turtlesim.msg import Pose
 from std_msgs.msg import Int32
 from turtlesim.srv import Kill, SetPen
 
+"""
+@Author: Elvi Mihai Sabau Sabau
+"""
 class TurtleWriterNode(Node):
     def __init__(self, usicoords, tolerance, trigger_distance=1.0, kill_distance=0.2, lookahead=0.0):
         # Creates a node with name 'move2goal'
         super().__init__('writer_usi_turtle')
+
+        self.get_logger().info("Starting the turtle writer node :)")
 
         # Store the coordinates of the letters and the current letter and coordinate per letter
         self.usicoords = usicoords
@@ -50,7 +55,7 @@ class TurtleWriterNode(Node):
 
         # Create a publisher and subscriber
         self.vel_publisher = self.create_publisher(Twist, '/turtle1/cmd_vel', 10)
-        self.offenderkilled_publisher = self.create_publisher(Int32, '/killedoffender', 10)
+        self.kill_publisher = self.create_publisher(Int32, '/killedoffender', 10)
         self.pose_subscriber = self.create_subscription(Pose, '/turtle1/pose', self.pose_callback, 10)
 
         # Store the current enemy turtle ( pos and number of the turtle )
@@ -58,9 +63,8 @@ class TurtleWriterNode(Node):
         self.current_enemy_id = None
 
         # Disable writing at the beginning
-        pen_req = SetPen.Request()
-        pen_req.off = True
-        self.pen_client.call_async(pen_req)
+        future = self.manage_pen(False)
+        future.done()
         
         # Current state of the turtle ( WRITING, ANGRY, RETURNING )
         self.state = "WRITING"
@@ -105,31 +109,37 @@ class TurtleWriterNode(Node):
 
 
     def enemy_pose_callback(self, offender_id, msg):
-        """Check if the turtle is close to a enemy turtle"""
+        """For every enemy turtle, check if it is close enough to the turtle to change to ANGRY state."""
 
-        # If the turtle is writing or angry and the enemy turtle is close enough, change to ANGRY state
-        if self.state == "WRITING" or self.state == "RETURNING" and self.euclidean_distance(self.current_pose, msg) <= self.trigger_distance:
+        # if the turtle is already in the ANGRY state, ignore.
+        if self.state == "ANGRY":
+            return
 
-            self.get_logger().info("Enemy turtle detected, changing to ANGRY state.")
+        # If the turtle is WRITTING or RETURNING and any enemy turtle is close enough, 
+        #   change to ANGRY state and lock in the enemy turtle until it is killed.
+        if self.euclidean_distance(self.current_pose, msg) <= self.trigger_distance:
+
+            self.get_logger().info("Enemy turtle too close, changing to ANGRY state.")
             self.get_logger().info(f"Enemy turtle {offender_id} is in pos ({msg.x}, {msg.y})")
 
-            # Store current pose before changing to ANGRY state if this is the first time ( From WRITING to ANGRY )
+            # Store current pose before changing to ANGRY state if the turtle was writing
+            #  this is used to return to the previous position and start writing from there
             if self.state == "WRITING":
                 self.previous_pose = self.current_pose
 
-            # Change to ANGRY state
+            # Change to ANGRY state, and store the enemy turtle position and id
             self.state = "ANGRY"
             self.current_enemy_pos = msg
             self.current_enemy_id = offender_id
 
             # Stop writing
-            pen_req = SetPen.Request()
-            pen_req.off = True
-            self.pen_client.call_async(pen_req)
+            self.manage_pen(False)
 
         
     def move_callback(self):
-        """Callback called periodically by the timer to publish a new command."""
+        """Function called periodically by the timer to do something according to the current state."""
+
+        self.get_logger().info(f"Current state: {self.state}")
 
         if self.state == "WRITING":
             self.normal_behaviour()
@@ -147,15 +157,18 @@ class TurtleWriterNode(Node):
         nextcoords.x = float(self.usicoords[self.usiletter][self.usilettercoords][0])
         nextcoords.y = float(self.usicoords[self.usiletter][self.usilettercoords][1])
 
-        # Writing handler
-        pen_req = SetPen.Request()
-
         # Wait until we receive the current pose of the turtle for the first time
         if self.current_pose is None:
             return
         
         # For each offender turtle
         if self.euclidean_distance(nextcoords, self.current_pose) >= self.tolerance:
+
+            # Disable writing if next coodinate is  the start of a new letter ( currently repositioning )
+            if self.usilettercoords == 0:
+                self.manage_pen(False)
+            else:
+                self.manage_pen(True)
 
             # Compute the velocities to send to the turtle
             cmd_vel = self.get_objective_speeds(nextcoords, self.current_pose, 2, 10, self.lookahead)
@@ -174,21 +187,9 @@ class TurtleWriterNode(Node):
             # Move to the next coordinate
             if self.usilettercoords < len(self.usicoords[self.usiletter])-1:
                 self.usilettercoords += 1
-
-                # Enable writing by setting the pen color to white and its width
-                pen_req.off = False
-                pen_req.width = 5
-                pen_req.r = 255
-                pen_req.g = 255
-                pen_req.b = 255
-                self.pen_client.call_async(pen_req)
             else:
                 self.get_logger().info("Letter finished, moving to next letter")
                 
-                # Disable writing
-                pen_req.off = True
-                self.pen_client.call_async(pen_req)
-
                 # Reset letter coordinates
                 self.usilettercoords = 0
             
@@ -202,12 +203,11 @@ class TurtleWriterNode(Node):
 
 
     def angry_behaviour(self):
-        """Move to the enemy turtle and kill it"""
+        """ Move to the current enemy turtle and kill it! """
 
         # Check if the enemy turtle is close enough to kill it
         if self.euclidean_distance(self.current_enemy_pos, self.current_pose) >= self.kill_distance:
-            self.get_logger().info(f"Moving to enemy turtle {self.current_enemy_id} >:)")
-
+            self.get_logger().info(f"Moving to enemy turtle {self.current_enemy_id} >:(")
 
             # Compute the velocities to send to the turtle
             cmd_vel = self.get_objective_speeds(self.current_enemy_pos, self.current_pose, 2, 10, self.lookahead)
@@ -215,8 +215,11 @@ class TurtleWriterNode(Node):
             # Publish the command
             self.vel_publisher.publish(cmd_vel)
         else:
-            self.get_logger().info("Enemy turtle reached, killing it")
+            self.get_logger().info(f"Enemy turtle reached, killing offender{self.current_enemy_id} >:)")
             
+            # Return to the previous position to continue writing from there
+            self.state = "RETURNING"
+
             # Stop the turtle
             cmd_vel = Twist()
             cmd_vel.linear.x = 0.0
@@ -227,15 +230,16 @@ class TurtleWriterNode(Node):
             kill_req = Kill.Request()
             kill_req.name = f'offender{self.current_enemy_id}'
             self.kill_client.call_async(kill_req)
-            self.offenderkilled_publisher.publish(Int32(data=self.current_enemy_id))
-            self.current_enemy_pos = None
-            self.current_enemy_id = None
-
-            # Return to the previous state
-            self.state = "RETURNING"
+            self.kill_publisher.publish(Int32(data=self.current_enemy_id))
 
     def returning_behaviour(self):
         """Return to the previous state after killing the enemy turtle"""
+
+        # If the turtle was repositioning while killing an enemy turtle, 
+        #   then instead of going back to the previous position go directly to the next coordinate
+        if self.usilettercoords == 0:
+            self.previous_pose.x = float(self.usicoords[self.usiletter][self.usilettercoords][0])
+            self.previous_pose.y = float(self.usicoords[self.usiletter][self.usilettercoords][1])
 
         # Check if the turtle is close enough to the previous position
         if self.euclidean_distance(self.previous_pose, self.current_pose) >= self.tolerance:
@@ -248,15 +252,15 @@ class TurtleWriterNode(Node):
             self.vel_publisher.publish(cmd_vel)
         else:
             self.get_logger().info("Previous position reached, returning to previous state")
+
+                # Return to the previous state
+            self.state = "WRITING"
             
             # Stop the turtle
             cmd_vel = Twist()
             cmd_vel.linear.x = 0.0
             cmd_vel.angular.z = 0.0
             self.vel_publisher.publish(cmd_vel)
-
-            # Return to the previous state
-            self.state = "WRITING"
         
 
     def get_enemy_turtles(self):
@@ -275,9 +279,6 @@ class TurtleWriterNode(Node):
                 turtle_number = int(topic.split('offender')[1].split('/')[0])
                 if turtle_number not in enemy_turtles:
                     enemy_turtles.append(turtle_number)
-        
-        if len(enemy_turtles) > 0:
-            self.get_logger().info(f"Enemy turtles: {enemy_turtles}")
         
         return enemy_turtles
 
@@ -309,6 +310,20 @@ class TurtleWriterNode(Node):
         
         return cmd_vel
 
+    def manage_pen(self, bool):
+        """Set the pen of the turtle to True or False."""
+
+        pen_req = SetPen.Request()
+        if bool:
+            pen_req.off = False
+            pen_req.width = 5
+            pen_req.r = 255
+            pen_req.g = 255
+            pen_req.b = 255
+        else:
+            pen_req.off = True
+
+        return self.pen_client.call_async(pen_req)
 
     def euclidean_distance(self, goal_pose, current_pose):
         """Euclidean distance between current pose and the goal."""
@@ -345,7 +360,7 @@ def main():
     # Define the tolerance, trigger distance and kill distance
     tolerance = 0.1
     trigger_distance = 3.0 # k2
-    kill_distance = 0.5    # k1
+    kill_distance = 1      # k1
     lookahead = False
 
     # Initialize the ROS client library

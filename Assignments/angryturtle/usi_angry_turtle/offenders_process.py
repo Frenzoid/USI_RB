@@ -5,6 +5,9 @@ from geometry_msgs.msg import Twist
 from turtlesim.srv import Spawn, SetPen
 from std_msgs.msg import Int32
 
+"""
+@Author: Elvi Mihai Sabau Sabau
+"""
 class TurtleSpawnerNode(Node):
     def __init__(self, concurrent_turtles):
         super().__init__('offender_usi_turtle')
@@ -58,12 +61,13 @@ class TurtleSpawnerNode(Node):
     def spawn_initial_turtles(self):
         """ Spawn initial turtles """
         for _ in range(self.concurrent_turtles):
-            self.spawn_turtle()
+            future = self.spawn_turtle()
+            future.done()
             self.num_turtles += 1
 
 
     def spawn_turtle(self):
-        """ Sapawn offender with random parameters """
+        """ Spawn offender with random parameters """
 
         self.get_logger().info(f'Spawning offender{self.num_turtles}')
 
@@ -74,18 +78,20 @@ class TurtleSpawnerNode(Node):
         request.theta = random.uniform(0, 2 * 3.14159)
         request.name = f'offender{self.num_turtles}'
 
-        self.spawn_client.call_async(request)
-
         # Create a publisher to control the spawned turtle
         self.offender_controllers[request.name] = self.create_publisher(Twist, f'/{request.name}/cmd_vel', 10)
+
+        # Call the spawn service to spawn the turtle
+        return self.spawn_client.call_async(request)
+
 
  
 def main():
     rclpy.init()
 
     # -----------------------------------------------------------------------------------------
-    # Spawn 10 turtles with 4 turtles alive concurrently
-    turtle_spawner_node = TurtleSpawnerNode( concurrent_turtles=4)
+    # Spawn 4 turtles alive concurrently
+    turtle_spawner_node = TurtleSpawnerNode( concurrent_turtles=4 )
     rclpy.spin(turtle_spawner_node)
 
 if __name__ == '__main__':
