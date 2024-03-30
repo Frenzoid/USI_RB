@@ -216,7 +216,7 @@ class TurtleWriterNode(Node):
             self.vel_publisher.publish(cmd_vel)
         else:
             self.get_logger().info(f"Enemy turtle reached, killing offender{self.current_enemy_id} >:)")
-            
+
             # Return to the previous position to continue writing from there
             self.state = "RETURNING"
 
@@ -229,8 +229,11 @@ class TurtleWriterNode(Node):
             # Kill the enemy turtle
             kill_req = Kill.Request()
             kill_req.name = f'offender{self.current_enemy_id}'
-            self.kill_client.call_async(kill_req)
+            future = self.kill_client.call_async(kill_req)
+
+            # Publish the killed enemy turtle
             self.kill_publisher.publish(Int32(data=self.current_enemy_id))
+              
 
     def returning_behaviour(self):
         """Return to the previous state after killing the enemy turtle"""

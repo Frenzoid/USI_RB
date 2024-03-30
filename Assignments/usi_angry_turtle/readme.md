@@ -12,6 +12,8 @@ Then run the following commands, one on each terminal.
 ros2 run turtlesim turtlesim_node
 ```
 
+And then in any order as you wish, run the following two: 
+
 ```bash
 ros2 run usi_angry_turtle writer
 ```

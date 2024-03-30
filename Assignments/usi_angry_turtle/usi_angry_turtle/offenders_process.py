@@ -12,8 +12,16 @@ class TurtleSpawnerNode(Node):
     def __init__(self, concurrent_turtles):
         super().__init__('offender_usi_turtle')
 
+        # Create killed array to store the killed offenders
+        self.killed = []
+
+        # Create a flag to make spawning an atomic operation and avoid race conditions
+        self.spawning = False
+
         # Initialize the number of turtles and the number of turtles spawned
         self.num_turtles = 0
+
+        # Initialize the number of concurrent turtles
         self.concurrent_turtles = concurrent_turtles
 
         # Create a service client to spawn turtles
@@ -51,25 +59,35 @@ class TurtleSpawnerNode(Node):
 
     def kill_callback(self, msg):
         """ Callback function to spawn new turtles when a turtle is killed """
-            
+
+        # Check if the offender is already killed to avoid multiple kills of the same offender ( God forsaken race conditions )
+        if msg.data in self.killed:
+            return
+        
         self.get_logger().info(f'Turtle: offender{msg.data} killed!')
+        
+        # Add the killed offender to the killed array
+        self.killed.append(msg.data)
+
+        # Spawn a new turtle
         self.spawn_turtle()
         
-        self.num_turtles += 1
 
 
     def spawn_initial_turtles(self):
         """ Spawn initial turtles """
         for _ in range(self.concurrent_turtles):
             future = self.spawn_turtle()
-            future.done()
-            self.num_turtles += 1
+            rclpy.spin_until_future_complete(self, future)
 
 
     def spawn_turtle(self):
         """ Spawn offender with random parameters """
 
         self.get_logger().info(f'Spawning offender{self.num_turtles}')
+
+        # Increment turtle count
+        self.num_turtles += 1
 
         # Create a request to spawn a turtle
         request = Spawn.Request()
@@ -83,7 +101,6 @@ class TurtleSpawnerNode(Node):
 
         # Call the spawn service to spawn the turtle
         return self.spawn_client.call_async(request)
-
 
  
 def main():
