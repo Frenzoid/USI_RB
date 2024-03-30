@@ -12,14 +12,12 @@ Then run the following commands, one on each terminal.
 ros2 run turtlesim turtlesim_node
 ```
 
-And then in any order as you wish, run the following two: 
-
 ```bash
-ros2 run usi_angry_turtle writer
+ros2 run usi_angry_turtle offenders
 ```
 
 ```bash
-ros2 run usi_angry_turtle offenders
+ros2 run usi_angry_turtle writer
 ```
 
 The writer node controls the turtle, and the offenders node manages the offender turtles.

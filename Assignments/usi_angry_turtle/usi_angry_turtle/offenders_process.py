@@ -41,8 +41,12 @@ class TurtleSpawnerNode(Node):
 
     
     def change_direction(self):
-        """ Change the direction of the spawned turtles randomly every second """
+        """ Change the direction of the spawned turtles randomly every second using the publishers """
         for name, publisher in self.offender_controllers.items():
+            
+            # Check if the turtle is killed to avoid changing the direction of the killed turtle
+            if name in self.killed:
+                continue
 
             # Create a service client to set the pen of the spawned turtle
             set_pen_client = self.create_client(SetPen, f'/{name}/set_pen')
@@ -60,18 +64,20 @@ class TurtleSpawnerNode(Node):
     def kill_callback(self, msg):
         """ Callback function to spawn new turtles when a turtle is killed """
 
-        # Check if the offender is already killed to avoid multiple kills of the same offender ( God forsaken race conditions )
+        # Check if the offender is already killed to avoid multiple kills of the same offender
         if msg.data in self.killed:
             return
         
         self.get_logger().info(f'Turtle: offender{msg.data} killed!')
+
+        # Desubscribe the killed offender ( Ros2 forced my hand, theres no fancy way to handle unsubscritpions with timers )
+        del self.offender_controllers[f'offender{msg.data}']
         
         # Add the killed offender to the killed array
         self.killed.append(msg.data)
 
         # Spawn a new turtle
         self.spawn_turtle()
-        
 
 
     def spawn_initial_turtles(self):
@@ -83,7 +89,6 @@ class TurtleSpawnerNode(Node):
 
     def spawn_turtle(self):
         """ Spawn offender with random parameters """
-
         self.get_logger().info(f'Spawning offender{self.num_turtles}')
 
         # Increment turtle count
@@ -108,7 +113,7 @@ def main():
 
     # -----------------------------------------------------------------------------------------
     # Spawn 4 turtles alive concurrently
-    turtle_spawner_node = TurtleSpawnerNode( concurrent_turtles=4 )
+    turtle_spawner_node = TurtleSpawnerNode( concurrent_turtles=3 )
     rclpy.spin(turtle_spawner_node)
 
 if __name__ == '__main__':
