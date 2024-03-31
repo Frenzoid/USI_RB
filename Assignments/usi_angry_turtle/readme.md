@@ -24,4 +24,4 @@ The writer node controls the turtle, and the offenders node manages the offender
 
 To change the writting coordinates, speed, k1, k2, lookahead of the writer turtle, you can change the values in the writer_process file. The writer node is a 3 state state machine, switching between normal, angry and move back behaviours, and a lookahead mechanism to intercept the offenders.
 
-To change the number of concurrent offenders, you can change the value in the offenders_process file.
+To change the number of concurrent offenders, you can change the value 'concurrent_turtles' in the offenders_process file.

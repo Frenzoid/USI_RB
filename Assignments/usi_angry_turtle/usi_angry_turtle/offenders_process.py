@@ -27,6 +27,10 @@ class TurtleSpawnerNode(Node):
         # Create a service client to spawn turtles
         self.spawn_client = self.create_client(Spawn, '/spawn')
 
+        # Wait for the spawn service to be available
+        while not self.spawn_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Service /spawn not available, waiting again...')
+
         # Create a subscriber to listen to the killed offender
         self.create_subscription(Int32, '/killedoffender', self.kill_callback, 10)
 
@@ -70,7 +74,7 @@ class TurtleSpawnerNode(Node):
         
         self.get_logger().info(f'Turtle: offender{msg.data} killed!')
 
-        # Desubscribe the killed offender ( Ros2 forced my hand, theres no fancy way to handle unsubscritpions with timers )
+        # Desubscribe the killed offender ( Ros2 forced my hand, theres no fancy way to handle unpublishers with timers due to race conditions )
         del self.offender_controllers[f'offender{msg.data}']
         
         # Add the killed offender to the killed array
@@ -78,6 +82,7 @@ class TurtleSpawnerNode(Node):
 
         # Spawn a new turtle
         self.spawn_turtle()
+        
 
 
     def spawn_initial_turtles(self):
@@ -89,6 +94,7 @@ class TurtleSpawnerNode(Node):
 
     def spawn_turtle(self):
         """ Spawn offender with random parameters """
+
         self.get_logger().info(f'Spawning offender{self.num_turtles}')
 
         # Increment turtle count
@@ -113,7 +119,7 @@ def main():
 
     # -----------------------------------------------------------------------------------------
     # Spawn 4 turtles alive concurrently
-    turtle_spawner_node = TurtleSpawnerNode( concurrent_turtles=3 )
+    turtle_spawner_node = TurtleSpawnerNode( concurrent_turtles=4 )
     rclpy.spin(turtle_spawner_node)
 
 if __name__ == '__main__':

@@ -47,6 +47,13 @@ class TurtleWriterNode(Node):
         self.pen_client = self.create_client(SetPen, '/turtle1/set_pen')
         self.kill_client = self.create_client(Kill, '/kill')
 
+        # Wait for the service clients to be available
+        while not self.pen_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Service /turtle1/set_pen not available, waiting again...')
+        
+        while not self.kill_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Service /kill not available, waiting again...')
+
         # List of current enemy turtles
         self.enemy_turtles = []
 
