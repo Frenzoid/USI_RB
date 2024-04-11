@@ -2,6 +2,10 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 
+"""
+Author: Elvi Mihai Sabau Sabau
+"""
+
 class EightController(Node):
     def __init__(self):
         super().__init__('eight_controller')
@@ -12,12 +16,12 @@ class EightController(Node):
         # Start State: circle_right then circle_left
         self.state = 'circle_right'
 
-        # Setup speed and rads
+        # Setup speed and rads ( max speed: 14cm/s (values from: 0 - 1), max rads: 3 rad/s (values from: 0 - 3) )
         self.speed = 0.2
-        self.rads = 1
+        self.rads = 2.0
 
         # Setup time necessary to complete a circle
-        self.circle_time = 12
+        self.circle_time = 7
 
         # Start the robot
         self.control_loop()
