@@ -27,6 +27,8 @@ setup(
         'console_scripts': [
             'eight = usi_thymio.eight:main',
             'wall = usi_thymio.wall:main',
+            'walk = usi_thymio.walk:main',
+            'circle = usi_thymio.circle:main',
         ],
     },
 )

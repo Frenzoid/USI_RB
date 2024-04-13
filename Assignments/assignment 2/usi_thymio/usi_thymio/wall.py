@@ -55,7 +55,6 @@ class WallController(Node):
         # Threshold error for the centering of the robot ( diff beteween sensors )
         self.centering_threshold = 0.001
 
-        # Threshold error for the turn around ( how similar the back sensors should be )
         # Threshold error for the turn around action ( in radians )
         self.turn_around_threshold = 0.5
 
@@ -195,6 +194,9 @@ class WallController(Node):
             "odometry: received pose (x: {:.2f}, y: {:.2f}, theta: {:.2f})".format(*pose2d),
              throttle_duration_sec=0.4
         )
+
+        if self.pose == self.previous_pose:
+            self.get_logger().info("Same Odometry. I am NOT moving?????????", throttle_duration_sec=0.4)
 
     def prox_callback(self, msg, prox):
         """ Callback for the proximity sensors, we store the value of the sensor """
