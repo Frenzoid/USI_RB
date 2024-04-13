@@ -44,6 +44,9 @@ class WallController(Node):
         # Amount of meters we want to move forward
         self.travel_distance = 2
 
+        # Amount of yaw (rads) we want to turn around in the turn around state
+        self.turn_around_degrees = 3.14
+
 
         # --- Tresholds --- (0.1 = 10cm)
         # Threshold error for when we initially approach the wall ( how close the robot should be to the wall because the sensors are bad >:c (max: 12cm) )
@@ -141,47 +144,46 @@ class WallController(Node):
     def turn_around_behaviour(self):
         """ Turn 180 degrees around using previous pose"""
 
-        """# If the back sensors are not similar or any of them is -1.0, we are not facing away from the wall
+        """
+        DISCARTED DUE TO THE BACK SENSORS NOT BEING ABLE TO READ THE WALL AFTER TURNING
+        # If the back sensors are not similar or any of them is -1.0, we are not facing away from the wall
         if -1.0 in [self.bprox1, self.bprox2] or abs(self.bprox1 - self.bprox2) > self.turn_around_threshold:
             self.get_logger().info("Turning around...", throttle_duration_sec=0.4)
             self.move(speed=0.0, rads=0.3)
             return"""
         
-        # Calculate the remaining yaw to spin 180 degrees ( we use the previous pose to calculate the remaining yaw )
-        remaining_yaw = abs(self.pose[2] - self.previous_pose[2])
+        # Calculate ammout of rads we have turned
+        yaw_turned = abs(self.pose[2] - self.previous_pose[2])
 
-        # If the remaining yaw is greater than 3.1415, we are turning the wrong way, we should turn the other way
-        if remaining_yaw > 3.1415:
-            remaining_yaw = 2 * 3.1415 - remaining_yaw
-
-        self.get_logger().info(f"Remaining Yaw: {remaining_yaw}", throttle_duration_sec=0.4)
-
-        # If we haven't turned 180 degrees, we keep turning
-        if remaining_yaw < 3.1415 - self.turn_around_threshold:
-            self.move(speed=0.0, rads=0.2)
+        # Compare if we turned enough rads
+        if yaw_turned <= self.turn_around_degrees:
+            self.get_logger().info(f"Turning around: {yaw_turned} / {self.turn_around_degrees}")
+            self.move(speed=0.0, rads=0.1)
             return
         
-        # If we are facing away from the wall, we change the state to FORWARD_2M
+        # If we are facing away from the wall ( we finished turning ), we change the state to FORWARD_2M
         self.stop_movement()
         self.previous_pose = self.pose
         self.state = 'FORWARD_2M'
 
-    
     def forward_2m_behaviour(self):
         """ Move forward 2 meters """
 
         # Calculate ecuclidean distance between the current pose and the previous pose
-        distance = self.euclidean_distance(self.previous_pose, self.pose)
-        self.get_logger().info(f"Distance: {distance}")
+        traveled_distance = self.euclidean_distance(self.previous_pose, self.pose)
+        self.get_logger().info(f"Distance traveled: {traveled_distance} / {self.travel_distance}", throttle_duration_sec=0.4)
 
         # Check if we have moved 2 meters, if not move forward, else change state to FORWARD
-        if distance <= self.travel_distance:
-            self.move(speed=0.5, rads=0.0)
+        if traveled_distance <= self.travel_distance:
+            self.move(speed=0.1, rads=0.0)
             return
 
         self.stop_movement()
         self.get_logger().info("WE'RE DONE HERE!")
         exit(0)
+
+
+
 
     # --- Callbacks ---
     def odom_callback(self, msg):
@@ -212,7 +214,9 @@ class WallController(Node):
         elif prox == 'bprox2':
             self.bprox2 = measure
         
-        self.get_logger().info(f"Proximities: F:[{self.prox1}, {self.prox2}, {self.prox3}, {self.prox4}], diff: {abs(self.prox2 - self.prox3)} | B:[{self.bprox1}, {self.bprox2}]", throttle_duration_sec=0.1)
+        if self.state in ['FORWARD', 'FACE_WALL']:
+            self.get_logger().info(f"Proximities: F:[{self.prox1}, {self.prox2}, {self.prox3}, {self.prox4}], diff: {abs(self.prox2 - self.prox3)} | B:[{self.bprox1}, {self.bprox2}]", throttle_duration_sec=0.1)
+
 
 
     # --- Movements Functions ---
@@ -231,6 +235,7 @@ class WallController(Node):
     def stop_movement(self):
         """ Stop the robot """
         self.move()
+
 
 
     # --- Helper Functions ---
