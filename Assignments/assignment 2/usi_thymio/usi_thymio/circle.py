@@ -13,15 +13,16 @@ class CircleController(Node):
         super().__init__('circle_controller')
 
         # Create a publisher to send velocity commands
-        self.odom_subscriber = self.create_subscription(Odometry, '/thymio0/odom', self.odom_callback, 10)
-        self.velocity_publisher = self.create_publisher(Twist, '/thymio0/cmd_vel', 10)
+        self.odom_subscriber = self.create_subscription(Odometry, 'odom', self.odom_callback, 10)
+        self.velocity_publisher = self.create_publisher(Twist, 'cmd_vel', 10)
 
-        self.move(0.2, 2)
+        self.move(1, 1)
         
 
     # --- Movements Functions ---
     def move(self, speed=0.0, rads=0.0):
         """ Move the robot with a given speed and turn """
+        self.get_logger().info("Moving the robot with speed: {:.2f} and rads: {:.2f}".format(speed, rads), throttle_duration_sec=0.4)
         velocity = Twist()
         
         # Forward Speed

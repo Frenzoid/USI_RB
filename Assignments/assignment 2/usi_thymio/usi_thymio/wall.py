@@ -17,6 +17,8 @@ class WallController(Node):
     def __init__(self):
         super().__init__('wall_controller')
 
+
+        # --- Variables ---
         # Publishers
         self.velocity_publisher = self.create_publisher(Twist, 'cmd_vel', 10)
 
@@ -27,37 +29,12 @@ class WallController(Node):
         self.prox3_subscriber = self.create_subscription(Range, 'proximity/center_right', lambda msg: self.prox_callback(msg, 'prox3'), 10)
         self.prox4_subscriber = self.create_subscription(Range, 'proximity/right', lambda msg: self.prox_callback(msg, 'prox4'), 10)
 
-        # Setup speed and rads ( max speed: 14cm/s (values from: 0 - 1), max rads: 3 rad/s (values from: 0 - 3) )
-        self.speed = 0
-        self.rads = 0
-
         # Setup the pose of the robot (x, y, theta ( yaw ))
         self.pose = None
 
         # Pose variable to store the pose when we face the wall and also the pose when we face away from the wall ( used to know how may degrees we have to turn, and also
         #   to know when we have traversed 2 meters )
         self.previous_pose = None
-
-        # Setup loop time
-        self.loop_time = 0.1
-
-        # Amount of meters we want to move forward
-        self.travel_distance = 2
-
-        # Amount of yaw (rads) we want to turn around in the turn around state
-        self.turn_around_degrees = 3.14
-
-
-        # --- Tresholds --- (0.1 = 10cm)
-        # Threshold error for when we initially approach the wall ( how close the robot should be to the wall because the sensors are bad >:c (max: 12cm) )
-        self.approach_threshold = 0.03
-
-        # Threshold error for the centering of the robot ( diff beteween sensors )
-        self.centering_threshold = 0.001
-
-        # Threshold error for the turn around action ( in radians )
-        self.turn_around_threshold = 0.5
-
 
         # Current state of the robot
         self.state = 'FORWARD'
@@ -70,15 +47,31 @@ class WallController(Node):
         self.prox3 = -1.0 # center_right
         self.prox4 = -1.0 # right
 
-        # Store the back sensors
-        self.bprox1 = -1.0 # back_left
-        self.bprox2 = -1.0 # back_right
 
+        # --- Configuration ---
+            # Setup loop time
+        self.loop_time = 0.1
+
+        # Amount of meters we want to move forward
+        self.travel_distance = 2
+
+
+        # --- Tresholds --- (0.1 = 10cm)
+        # Threshold error for when we initially approach the wall ( how close the robot should be to the wall because the sensors are bad >:c (max: 12cm) )
+        self.approach_threshold = 0.025
+
+        # Threshold error for the centering of the robot ( diff beteween sensors )
+        self.centering_threshold = 0.0005
+
+
+        # --- Initialization ---
         # Start the robot
         self.control_loop()
 
         # Create a timer to change the state every circle_time
         self.create_timer(self.loop_time, self.control_loop)
+
+
 
     # --- Main Control Loop ---
     def control_loop(self):
@@ -137,7 +130,7 @@ class WallController(Node):
             return
 
         # Else we spin to face the wall ( get_spin_face_wall returns -1 or 1 based on the direction we should spin )
-        self.move(speed=0.0, rads=rotation_sign * 0.1)
+        self.move(speed=0.0, rads=rotation_sign * 0.05)
         
 
     def turn_around_behaviour(self):
@@ -152,15 +145,16 @@ class WallController(Node):
             return"""
         
         # Calculate ammout of rads we have turned
-        yaw_turned = abs(self.pose[2] - self.previous_pose[2])
+        rads = self.pose[2] - self.previous_pose[2]
 
         # Compare if we turned enough rads
-        if yaw_turned <= self.turn_around_degrees:
-            self.get_logger().info(f"Turning around: {yaw_turned} / {self.turn_around_degrees}")
+        if rads > -1:
+            self.get_logger().info(f"Turning around | Rads turned: {rads}")
             self.move(speed=0.0, rads=0.1)
             return
         
         # If we are facing away from the wall ( we finished turning ), we change the state to FORWARD_2M
+        self.get_logger().info(f"Finished turning! | Rads turned:{rads}")
         self.stop_movement()
         self.previous_pose = self.pose
         self.state = 'FORWARD_2M'
@@ -180,8 +174,6 @@ class WallController(Node):
         self.stop_movement()
         self.get_logger().info("WE'RE DONE HERE!")
         exit(0)
-
-
 
 
     # --- Callbacks ---
@@ -218,7 +210,6 @@ class WallController(Node):
         
         if self.state in ['FORWARD', 'FACE_WALL']:
             self.get_logger().info(f"Proximities: F:[{self.prox1}, {self.prox2}, {self.prox3}, {self.prox4}], diff: {abs(self.prox2 - self.prox3)} | B:[{self.bprox1}, {self.bprox2}]", throttle_duration_sec=0.1)
-
 
 
     # --- Movements Functions ---

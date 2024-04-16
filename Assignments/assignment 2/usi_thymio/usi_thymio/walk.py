@@ -31,7 +31,7 @@ class WalkController(Node):
         self.random_direction = 1
 
         # Threshold of how close should the robot be to an obstacle to consider it detected
-        self.threshold = 0.03
+        self.threshold = 0.001
 
 
         # --- Publishers and Subscribers ---
