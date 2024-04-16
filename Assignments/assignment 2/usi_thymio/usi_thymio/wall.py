@@ -1,5 +1,5 @@
 import rclpy
-from math import sqrt, pow
+from math import sqrt, pow, pi
 
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
@@ -28,6 +28,8 @@ class WallController(Node):
         self.prox2_subscriber = self.create_subscription(Range, 'proximity/center_left', lambda msg: self.prox_callback(msg, 'prox2'), 10)
         self.prox3_subscriber = self.create_subscription(Range, 'proximity/center_right', lambda msg: self.prox_callback(msg, 'prox3'), 10)
         self.prox4_subscriber = self.create_subscription(Range, 'proximity/right', lambda msg: self.prox_callback(msg, 'prox4'), 10)
+        self.bprox1_subscriber = self.create_subscription(Range, 'proximity/rear_left', lambda msg: self.prox_callback(msg, 'bprox1'), 10)
+        self.bprox2_subscriber = self.create_subscription(Range, 'proximity/rear_right', lambda msg: self.prox_callback(msg, 'bprox2'), 10)
 
         # Setup the pose of the robot (x, y, theta ( yaw ))
         self.pose = None
@@ -46,22 +48,32 @@ class WallController(Node):
         self.prox2 = -1.0 # center_left
         self.prox3 = -1.0 # center_right
         self.prox4 = -1.0 # right
+        self.bprox1 = -1.0 # back left
+        self.bprox2 = -1.0 # back right
 
 
         # --- Configuration ---
-            # Setup loop time
-        self.loop_time = 0.1
+        # Setup loop time
+        self.loop_time = 0.05
 
         # Amount of meters we want to move forward
         self.travel_distance = 2
 
+        # Turn speed
+        self.turn_speed = 0.08
+
+        # Slow Approach speed
+        self.slow_approach_speed = 0.1
+
 
         # --- Tresholds --- (0.1 = 10cm)
         # Threshold error for when we initially approach the wall ( how close the robot should be to the wall because the sensors are bad >:c (max: 12cm) )
-        self.approach_threshold = 0.025
+        self.frontal_approach_threshold = 0.028
+        self.posterior_approach_threshold = 0.07
+
 
         # Threshold error for the centering of the robot ( diff beteween sensors )
-        self.centering_threshold = 0.0005
+        self.centering_threshold = 0.0008
 
 
         # --- Initialization ---
@@ -110,54 +122,64 @@ class WallController(Node):
     def face_wall_behaviour(self):
         """ Behaviour of the robot when it is in the face wall state """
 
+        sensors = [self.prox1, self.prox2, self.prox3, self.prox4]
+
         # Check if any proximity sensor is close enough to the wall for the sensor to get a good reading, compare with the closest sensor
         #  if not close enough, move forward slowly 
-        prox_values = [prox for prox in [self.prox1, self.prox2, self.prox3, self.prox4] if prox != -1.0]
-        if prox_values and min(prox_values) > self.approach_threshold:
-            self.get_logger().info("Approaching the wall slooooowly O.o")
-            self.move(speed=0.1, rads=0.0)
+        if not self.is_close_enough(self.frontal_approach_threshold, sensors):
+            self.get_logger().info(f"Approaching the wall slooooowly O.o | F.Proximity: {sensors}")
+            self.move(speed=self.slow_approach_speed, rads=0.0)
             return
 
         # Get the rotation sign ( -1 or 1 ) based on the proximity sensors
-        rotation_sign = self.get_direction_spin_face_wall(self.centering_threshold)
+        rotation_sign = self.get_direction_spin_face_wall(self.centering_threshold, sensors)
         self.get_logger().info(f"Rotation sign: {rotation_sign}", throttle_duration_sec=0.4)
 
         # If we are facing the wall, we change the state to TURN_AROUND
         if rotation_sign == 0:
+            self.get_logger().info(f"Facing the wall face first! | Proximities: {sensors}")
             self.stop_movement()
             self.previous_pose = self.pose
             self.state = 'TURN_AROUND'
             return
 
         # Else we spin to face the wall ( get_spin_face_wall returns -1 or 1 based on the direction we should spin )
-        self.move(speed=0.0, rads=rotation_sign * 0.05)
+        self.move(speed=0.0, rads=rotation_sign * self.turn_speed)
         
 
     def turn_around_behaviour(self):
         """ Turn 180 degrees around using previous pose"""
 
-        """
-        DISCARTED DUE TO THE BACK SENSORS NOT BEING ABLE TO READ THE WALL AFTER TURNING
-        # If the back sensors are not similar or any of them is -1.0, we are not facing away from the wall
-        if -1.0 in [self.bprox1, self.bprox2] or abs(self.bprox1 - self.bprox2) > self.turn_around_threshold:
-            self.get_logger().info("Turning around...", throttle_duration_sec=0.4)
-            self.move(speed=0.0, rads=0.3)
-            return"""
-        
-        # Calculate ammout of rads we have turned
-        rads = self.pose[2] - self.previous_pose[2]
+        # Sensor variables formated for the get_direction_spin_face_wall and is_close_enough functions
+        sensors = [-1.0, self.bprox1, self.bprox2, -1.0]
 
-        # Compare if we turned enough rads
-        if rads > -1:
-            self.get_logger().info(f"Turning around | Rads turned: {rads}")
-            self.move(speed=0.0, rads=0.1)
+        # If we dont get any reading from the back sensors, keep turning around
+        if all(sensor == -1.0 for sensor in sensors):
+            self.get_logger().info(f"Turning around... | B.Proximity: {sensors}", throttle_duration_sec=0.4)
+            self.move(speed=-0.05, rads=0.7)
+            return
+
+        # Get sign of the rotation based on the back sensors ( we move backwards, we negate the sign )
+        rotation_sign = self.get_direction_spin_face_wall(self.centering_threshold, sensors) * -1
+        self.get_logger().info(f"Rotation sign: {rotation_sign}", throttle_duration_sec=0.4)
+
+        # Turn around until we detect the back wall
+        if not self.is_close_enough(self.posterior_approach_threshold, sensors):
+            self.get_logger().info(f"Approaching the back wall slooooowly O.o | BProximity: {self.bprox1}, {self.bprox2}")
+            self.move(speed=-self.slow_approach_speed, rads=rotation_sign * self.turn_speed)
             return
         
-        # If we are facing away from the wall ( we finished turning ), we change the state to FORWARD_2M
-        self.get_logger().info(f"Finished turning! | Rads turned:{rads}")
-        self.stop_movement()
-        self.previous_pose = self.pose
-        self.state = 'FORWARD_2M'
+        # If we are facing the wall, we change the state to FORWARD_2M
+        if rotation_sign == 0:
+            self.get_logger().info(f"Finished turning! | B.Proximities: {sensors}")
+            self.stop_movement()
+            self.previous_pose = self.pose
+            self.state = 'FORWARD_2M'
+            return
+        
+        # Else we spin to face the wall ( get_spin_face_wall returns -1 or 1 based on the direction we should spin )
+        self.move(speed=0.0, rads=rotation_sign * self.turn_speed)
+
 
     def forward_2m_behaviour(self):
         """ Move forward 2 meters """
@@ -249,20 +271,28 @@ class WallController(Node):
             pose3d.position.y,  # y position
             yaw                 # theta orientation
         )
+    
+    def is_close_enough(self, treshold, sensors):
+        """ Return true if any of the sensors is less than the treshold ignoring -1.0 values """
+        return any(sensor < treshold for sensor in sensors if sensor != -1.0)
+    
 
-    def get_direction_spin_face_wall(self, treshold):
-        """ Return in which direction should the robot spin to face the wall ( make the prox2 and prox3 as similar as possible based on a treshold ) """
+    def get_direction_spin_face_wall(self, treshold, sensors):
+        """ Return in which direction should the robot spin to face the wall ( make the middle sensors as similar as possible based on a treshold )
+            sensors: list of 4 proximity sensors, for back sensors, sensors[0] and sensors[1] are just -1.0
+            treshold: treshold for the difference between the two central sensors
+         """
         
         # If the difference between the two central sensors is less than the treshold, we are facing the wall
-        if self.prox2 != -1.0 and self.prox3 != -1.0 and abs(self.prox2 - self.prox3) <= treshold:
+        if sensors[1] != -1.0 and sensors[2] != -1.0 and abs(sensors[1] - sensors[2]) <= treshold:
             self.get_logger().info("Facing the wall!!", throttle_duration_sec=0.4)
             return 0
         
-        # get readings from the left and right sensors, ignore if one of them is -1.0
-        left_prox = [prox for prox in [self.prox1, self.prox2] if prox != -1.0]
-        right_prox = [prox for prox in [self.prox3, self.prox4] if prox != -1.0]
+        # Get readings from the left and right sensors, ignore if one of them is -1.0
+        left_prox = [prox for prox in [sensors[0], sensors[1]] if prox != -1.0]
+        right_prox = [prox for prox in [sensors[2], sensors[3]] if prox != -1.0]
 
-        # average the sum over the amount of correct readings, if no correct readings, set average to 10
+        # Average the sum over the amount of correct readings, if no correct readings, set average to 10
         left_prox = sum(left_prox) / len(left_prox) if left_prox else 99
         right_prox = sum(right_prox) / len(right_prox) if right_prox else 99
         
@@ -274,7 +304,7 @@ class WallController(Node):
 
         
         # If we reach this point, we were not close enough to the wall to take a good reading, we shouldn't be able to reach this point tho, setup proper tresholds!
-        self.get_logger().error(f"BAD ENDING: [{self.prox1}, {self.prox2}, {self.prox3}, {self.prox4}].")
+        self.get_logger().error(f"BAD ENDING. Proximities: {sensors}. Treshold: {treshold}")
         self.stop_movement()
         raise Exception(" NOT CLOSE ENOUGH TO TAKE GOOD READING!! >:c")
     
