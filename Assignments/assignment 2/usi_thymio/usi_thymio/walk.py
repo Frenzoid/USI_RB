@@ -31,7 +31,7 @@ class WalkController(Node):
         self.random_direction = 1
 
         # Threshold of how close should the robot be to an obstacle to consider it detected
-        self.threshold = 0.001
+        self.threshold = 0.05
 
 
         # --- Publishers and Subscribers ---
@@ -58,7 +58,7 @@ class WalkController(Node):
         prox1, prox2, prox3, prox4 = self.prox_sensors['prox1'], self.prox_sensors['prox2'], self.prox_sensors['prox3'], self.prox_sensors['prox4']
 
         # Get the maximum proximity sensors from each side
-        prox_left = max(prox1, prox2)
+        prox_left = max(prox1, prox2) 
         prox_right = max(prox3, prox4)
 
         # Move forward if no obstacles detected
@@ -71,14 +71,14 @@ class WalkController(Node):
         # Obstacle on the left or center-left
         if prox_right == -1.0 and prox_left < self.threshold:
             self.uncertain = False
-            self.get_logger().info("Obstacle detected on the left. Turning left.")
+            self.get_logger().info("Obstacle detected on the left. Turning right.")
             self.move(0, -self.turn)  # Turn right
             return
 
         # Obstacle on the right or center-right
         if prox_left == -1.0 and prox_right < self.threshold:
             self.uncertain = False
-            self.get_logger().info("Obstacle detected on the right. Turning right.")
+            self.get_logger().info("Obstacle detected on the right. Turning left.")
             self.move(0, self.turn)  # Turn left
             return
         
@@ -86,7 +86,7 @@ class WalkController(Node):
         if prox2 == -1.0 and prox3 == -1.0 and prox1 < self.threshold and prox4 < self.threshold:
             self.uncertain = False
             self.get_logger().info("Squeezing through the middle. Moving forward.")
-            self.move(self.speed, 0.0)
+            self.move(self.speed, 0.0) # Move forward
             return
         
         # If the robot got here, and uncertain conditions are not set, set them and generate a random direction ( 1 , -1)
@@ -94,7 +94,7 @@ class WalkController(Node):
             self.uncertain = True
             self.random_direction = random.choice([-1, 1])
             self.get_logger().info("Uncertain conditions O.o. Generating random direction.")
-            return              
+            return    
         
         # Default behavior: turn right if surrounded or uncertain conditions
         self.get_logger().info("Uncertain conditions O.o. Turning in a random direction.")

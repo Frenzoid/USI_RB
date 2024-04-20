@@ -21,7 +21,7 @@ class EightController(Node):
         self.rads = 2.0
 
         # Setup time necessary to complete a circle
-        self.circle_time = 7
+        self.circle_time = 5.5
 
         # Start the robot
         self.control_loop()
