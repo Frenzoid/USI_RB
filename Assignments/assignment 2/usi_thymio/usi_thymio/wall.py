@@ -66,7 +66,7 @@ class WallController(Node):
         self.slow_approach_speed = 0.1
 
 
-        # --- Tresholds --- (0.1 = 10cm)
+        # --- Thresholds --- (0.1 = 10cm)
         # Threshold error for when we initially approach the wall ( how close the robot should be to the wall because the sensors are bad >:c (max: 12cm) )
         self.frontal_approach_threshold = 0.028
         self.posterior_approach_threshold = 0.07
@@ -278,9 +278,9 @@ class WallController(Node):
     
 
     def get_direction_spin_face_wall(self, treshold, sensors):
-        """ Return in which direction should the robot spin to face the wall ( make the middle sensors as similar as possible based on a treshold )
+        """ Return in which direction should the robot spin to face the wall ( make the middle sensors as similar as possible based on a threshold )
             sensors: list of 4 proximity sensors, for back sensors, sensors[0] and sensors[1] are just -1.0
-            treshold: treshold for the difference between the two central sensors
+            threshold: threshold for the difference between the two central sensors
          """
         
         # If the difference between the two central sensors is less than the treshold, we are facing the wall
@@ -292,7 +292,7 @@ class WallController(Node):
         left_prox = [prox for prox in [sensors[0], sensors[1]] if prox != -1.0]
         right_prox = [prox for prox in [sensors[2], sensors[3]] if prox != -1.0]
 
-        # Average the sum over the amount of correct readings, if no correct readings, set average to 10
+        # Average the sum over the amount of correct readings, if no correct readings, set average to 99
         left_prox = sum(left_prox) / len(left_prox) if left_prox else 99
         right_prox = sum(right_prox) / len(right_prox) if right_prox else 99
         
