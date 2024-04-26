@@ -1,0 +1,32 @@
+Dates:
+
+    April 30: last day to get feedback on the Project Pitches forum
+    May 7: halfway presentation, you will get feedback on what you have achieved
+    May 30 23:59: submission of the code and material
+    May 31: Final presentation
+
+    The final project accounts for 30% of the final grade.  The first two homeworks are worth 10% and 10% respectively of the final grade. In total, homeworks+project counts for 50% of the final grade.
+
+    The project should be completed in groups of 1, 2 or 3 people. Grading accounts for group size. Groups can be different from those used for the second homework.
+
+    All projects are based on simulations (with optional tests on real robots at the end)
+
+    It’s OK if multiple groups choose the same project.  In this case, groups can exchange ideas and suggestions at a high level, but not solutions.
+
+    Some projects require students to learn new things independently (e.g. using a ROS2 package, learning a new algorithm, simulating something with Coppelia ...). This is expected.
+
+    Submission happens in two moments:
+
+        Submission deadline May 30 23:59:
+        - Complete source code
+        - A short writeup, ideally 3-4-5 pages (for 1-2-3 ppl respectively) in double-column IEEE format, or equivalent in other formats, carefully illustrated. More if really needed (especially if it is heavily illustrated)
+
+        Presentation May 31: a lightning presentation, including slides and most importantly videos of the system working and failing. The ideal duration is 4-6-8 minutes (strict max 6-8-10) for groups of 1-2-3 students respectively.
+
+    Unlike homework 1 and 2, “standard” performance will be graded 7/10.  A good job is 8.5/10, and an excellent job is 10/10
+
+    We grade the quality of the work, not the quality of the results.  Failing to get a satisfactory result while perfectly documenting one or two nice attempts + analyzing why they failed can be a 10/10 project.
+
+    Students are expected to ask for feedback during the project in the forum.  Questions should be asked following the StackOverflow rules: https://stackoverflow.com/help/how-to-ask. In most cases, it will be important to show that the student made a good-faith attempt to solve the problem first.
+
+    Grade components: 50% technical (proper choice of algorithms, implementation, validation, problem-solving and troubleshooting, participation in the forums, answering questions during the presentation); 20% writeup quality (clarity, synthesis, illustrations); 30% presentation quality (clarity, synthesis, illustrations).

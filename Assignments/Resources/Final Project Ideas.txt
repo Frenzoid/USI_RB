@@ -1,0 +1,22 @@
+• Implement a robot that is capable of autonomously following a line drawn on the ground. You can use a RoboMaster (RM) or Mighty Thymio (MyT) to perceive the line with a camera, or the two ground sensors of a Thymio.
+
+• Use the RM with a front-looking distance sensor to create the map of a room. E.g., the robot can rotate in place 360º and get a scan, then move somewhere else and do another scan, align it with the previous scan, and iterate.
+
+• Use a RM with 4 forward-looking distance sensors (e.g. angled as the thymio ones) to find and get close to the wall of a room, scan the room boundary by moving sideways, detect any openings (doors, assume all have the same width), choose one opening at random, traverse it and iterate in the neighboring room.
+
+• In a similar scenario, implement a RM that can follow corridors by moving along their centerline
+
+• Consider a RM (or MyT) placed in a room with another RM. The other RM has a visual marker (easily detected with ROS) for easy detection. Implement a way for the observer robot to recover the state of the LEDs of the observed robot (e.g. using simple image processing or a CNN)
+
+• Consider a robot (RM or MyT) that might be in one of N places (e.g. inside a class, in the courtyard, in a corridor; or in a simulated room vs a different simulated room). You want to build a place recognition CNN that given an image frame returns in which place the robot is. Design a controller such that, when the robot is placed in one place, it acquires many images of that place. Use the controller to collect a dataset, train a CNN and show that it works (e.g. the robot could light up its lights in different ways)
+
+• Consider a RM or MyT placed in an unknown room. The robot must randomly explore the room without colliding with objects, with the goal of finding a special object (marked with a visual marker). When you find the goal, do a little dance.
+
+• Consider a RM EP and an object with an Aruco marker on it, find the object (a small box), grasp it and bring it to another designated place
+
+• Consider two robots. Find a way to communicate and understand each other status using only the LED and cameras
+
+• Consider the RM EP, which has a gripper and a camera that point at it: estimate the gripper state (i.e., how much open it is) from the camera frame using ML or visual markers. Possibly when there is an object being grabbed too.
+
+
+In general you can use all other sensors present in Coppelia (e.g. Velodyne LiDAR), you will just have to publish the sensor’s data to ROS2
