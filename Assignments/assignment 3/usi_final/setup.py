@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'primary = usi_final.primary:main',
+            'rotation = usi_final.rotation:main',
         ],
     },
 )

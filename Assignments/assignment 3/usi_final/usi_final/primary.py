@@ -1,142 +1,103 @@
 import rclpy
-import tf_transformations
-from geometry_msgs.msg import Twist
-from sensor_msgs.msg import Range
 from rclpy.node import Node
-from nav_msgs.msg import Odometry
+import cv2
+import numpy as np
+import mediapipe as mp
+from geometry_msgs.msg import Twist
+from cv_bridge import CvBridge
+from sensor_msgs.msg import Image
+from std_msgs.msg import Int32
 
 """
 Author: Elvi Mihai Sabau Sabau
 """
 
 class PrimaryController(Node):
-    """ Walk until an obstacle is detected, then turn towards the direction where there is no obstacles"""
-
+    """ Get camera and publish finger number """
     def __init__(self):
-        super().__init__('walk_controller')
+        super().__init__('Primary_controllers')
 
-        #  --- Varialbes ---
-        # Control loop hz
-        self.control_loop_hz = 0.1
+        # --- Configuration Variables ---
+        # Interval time used to measure what movement / direction should we do
+        self.interval_time = 1.0
 
-        # Initialize proximity sensors
-        self.prox_sensors = {'prox1': -1.0, 'prox2': -1.0, 'prox3': -1.0, 'prox4': -1.0}
-
-        # Initialize the robot's pose
-        self.pose = None
-        
-        # Speed vel and turn
-        self.speed = 0.5
-        self.turn = 1.0
-
-        # Threshold of how close should the robot be to an obstacle to consider it detected
-        self.threshold = 0.05
+        # Speeds at which the robot should move
+        self.velocity_speed = 1.0
+        self.direction_speed = 2.0
 
 
-        # --- Publishers and Subscribers ---
-        # Create a publisher to send velocity commands
+        # --- Global variables ---
+        # Array of movement commands received from the past 1s
+        self.movement = []
+
+        # Array of direction commands received from the past 1s.
+        self.direction = []
+
+
+        # --- Subscribers and Publishers ---
+        # Subscribe to the topic movement
+        self.movement_subscriber = self.create_subscription(Int32, 'movement', self.movement_callback, 10)
+
+        # Subscribe to the topic direction
+        self.direction_subscriber = self.create_subscription(Int32, 'direction', self.direction_callback, 10)
+
+        # Rbomaster velocity publisher
         self.velocity_publisher = self.create_publisher(Twist, 'cmd_vel', 10)
-
-        # Create a subscriber to get proximity sensor readings
-        self.prox1_subscriber = self.create_subscription(Range, 'proximity/left', lambda msg: self.prox_callback(msg, 'prox1'), 10)
-        self.prox2_subscriber = self.create_subscription(Range, 'proximity/center_left', lambda msg: self.prox_callback(msg, 'prox2'), 10)
-        self.prox3_subscriber = self.create_subscription(Range, 'proximity/center_right', lambda msg: self.prox_callback(msg, 'prox3'), 10)
-        self.prox4_subscriber = self.create_subscription(Range, 'proximity/right', lambda msg: self.prox_callback(msg, 'prox4'), 10)
-
-        # Get Odometry data to get the robot's position
-        self.odom_subscriber = self.create_subscription(Odometry, 'odom', lambda msg: self.odom_callback(msg), 10)
 
 
         # --- Timers ---
-        # Control loop timer
-        self.create_timer(self.control_loop_hz, self.control_loop)
+        # Timer to check the movement and direction, and perform the action
+        self.timer = self.create_timer(self.interval_time, self.perform_action)
 
 
-    # --- Control Loop ---
-    def control_loop(self):
-        """Control loop to move the robot based on proximity sensor readings"""
+    # --- Main Functions ---
+    def perform_action(self):
+        """ Perform the action based on the movement and direction """
 
-        if self.pose is None:
-            self.get_logger().warn("Waiting for odometry data...")
+        # If there is no movement or direction, do nothing
+        if len(self.movement) == 0 or len(self.direction) == 0:
+            self.move(speed=0.0, rads=0.0)
             return
-
-        # Get sensor readings
-        prox1, prox2, prox3, prox4 = self.prox_sensors['prox1'], self.prox_sensors['prox2'], self.prox_sensors['prox3'], self.prox_sensors['prox4']
-
-        # Get the maximum proximity sensors from each side
-        prox_left = max(prox1, prox2) 
-        prox_right = max(prox3, prox4)
-
-        # Move forward if no obstacles detected
-        if all(sensor == -1.0 for sensor in [prox_left, prox_right]):
-            self.uncertain = False
-            self.get_logger().info("No obstacles detected. Moving forward.")
-            self.move(self.speed, 0.0) # Move forward
-            return
-
-        # Obstacle on the left or center-left
-        if prox_right == -1.0 and prox_left < self.threshold:
-            self.uncertain = False
-            self.get_logger().info("Obstacle detected on the left. Turning right.")
-            self.move(0, -self.turn)  # Turn right
-            return
-
-        # Obstacle on the right or center-right
-        if prox_left == -1.0 and prox_right < self.threshold:
-            self.uncertain = False
-            self.get_logger().info("Obstacle detected on the right. Turning left.")
-            self.move(0, self.turn)  # Turn left
-            return
-
-        # In any other case if we detect something but were not sure on which side its closer, turn right
-        self.move(0, -self.turn)
-
-
-    # --- Callbacks ---
-    # Proximity sensor callback
-    def prox_callback(self, msg, sensor_id):
-        """Callback function for proximity sensors"""
-        self.prox_sensors[sensor_id] = round(msg.range, 4)
-        self.get_logger().info(f"Proximity sensors: {self.prox_sensors}")
-
-    # Odometry callback
-    def odom_callback(self, msg):
-        """ Callback for the odometry topic, here we get a 3d pose, and we convert it to a 2d pose (x, y, theta)"""
-        pose2d = self.pose3d_to_2d(msg.pose.pose)
-        self.pose = pose2d
         
-        self.get_logger().info(
-            "odometry: received pose (x: {:.2f}, y: {:.2f}, theta: {:.2f})".format(*pose2d),
-             throttle_duration_sec=0.4
-        )
+        # Get the most common movement and direction, only integers
+        avg_mvm = np.mean(self.movement)
+        avg_dir = np.mean(self.direction)
 
+        # Reset the movement and direction
+        self.movement = []
+        self.direction = []
+
+        # Perform the action
+        self.move(speed = avg_mvm * self.velocity_speed, 
+                   rads = avg_dir * self.direction_speed)        
+
+
+    # --- Callbacks ---    
+    def movement_callback(self, msg):
+        """ Append the movement to the movement array """
+        self.movement.append(msg.data)
+        self.get_logger().info("Movement received: {}".format(msg.data))
+
+    def direction_callback(self, msg):
+        """ Append the direction to the direction array """
+        self.direction.append(msg.data)
+        self.get_logger().info("Direction received: {}".format(msg.data))
+
+    
 
     # --- Helper Functions ---
-    # Move the robot
-    def move(self, speed, turn):
-        twist = Twist()
-        twist.linear.x = float(speed)
-        twist.angular.z = float(turn)
-        self.velocity_publisher.publish(twist)
-
-    # Convert a 3D pose to a 2D pose
-    def pose3d_to_2d(self, pose3d):
-        """ Convert a 3D pose to a 2D pose """
-
-        quaternion = (
-            pose3d.orientation.x,
-            pose3d.orientation.y,
-            pose3d.orientation.z,
-            pose3d.orientation.w
-        )
+    def move(self, speed=0.0, rads=0.0):
+        """ Move the robot with a given speed and turn """
+        self.get_logger().info("Moving the robot with speed: {:.2f} and rads: {:.2f}".format(speed, rads), throttle_duration_sec=0.4)
+        velocity = Twist()
         
-        _, _, yaw = tf_transformations.euler_from_quaternion(quaternion)
-        
-        return (
-            pose3d.position.x,  # x position
-            pose3d.position.y,  # y position
-            yaw                 # theta orientation
-        )
+        # Forward Speed
+        velocity.linear.x = float(speed)
+
+        # Rotate speed
+        velocity.angular.z = float(rads)
+
+        self.velocity_publisher.publish(velocity)
     
 # --- Main ---
 def main(args=None):
