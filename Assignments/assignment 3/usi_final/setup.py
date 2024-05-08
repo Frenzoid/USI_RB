@@ -25,8 +25,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'primary = usi_final.primary:main',
+            'tracking = usi_final.tracking:main',
+            'movement = usi_final.movement:main',
             'rotation = usi_final.rotation:main',
+            'gbcontrol = usi_final.gimbalcontrol:main',
         ],
     },
 )

@@ -32,6 +32,10 @@
        The `output` option configures the node to print to the terminal, to help with debugging.
        By default, nodes launched from a launch file print their output to a log file.
   -->
-  <node pkg="usi_final" exec="rotation" namespace="$(var robomaster_name)" output='screen' />
+  <node pkg="usi_final" exec="movement" namespace="$(var robomaster_name)" output='screen' />
+  <node pkg="usi_final" exec="tracking" namespace="$(var robomaster_name)" output='screen' />
+  <node pkg="usi_final" exec="gbcontrol" namespace="$(var robomaster_name)" output='screen' />
+
+
 
 </launch>
