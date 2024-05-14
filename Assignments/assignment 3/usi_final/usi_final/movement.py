@@ -22,8 +22,8 @@ class PrimaryController(Node):
         self.interval_time = 0.5
 
         # Speeds at which the robot should move
-        self.velocity_speed = 0.1
-        self.direction_speed = 0.2
+        self.velocity_speed = 0.2
+        self.direction_speed = 0.4
 
         # --- Global variables ---
         # Array of movement commands received from the past 1s
@@ -35,10 +35,10 @@ class PrimaryController(Node):
 
         # --- Subscribers and Publishers ---
         # Subscribe to the topic movement (movement, direction)
-        self.movement_subscriber = self.create_subscription(String, 'cmd_command', self.cmd_command_callback, 10)
+        self.movement_subscriber = self.create_subscription(String, '/cmd_command', self.cmd_command_callback, 10)
 
         # Rbomaster velocity publisher
-        self.velocity_publisher = self.create_publisher(Twist, 'cmd_vel', 10)
+        self.velocity_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
 
 
         # --- Timers ---
@@ -84,21 +84,26 @@ class PrimaryController(Node):
         self.movement.append(movement)
         self.direction.append(direction)
 
+        # Forward Speed
         self.get_logger().info("Movement received: {}".format(msg.data))
 
 
 
     # --- Helper Functions ---
-    def move(self, speed=0.0, rads=0.0):
+    def move(self, speed=0.0, rads=0.0, side=0.0):
         """ Move the robot with a given speed and turn """
         self.get_logger().info("Moving the robot with speed: {:.2f} and rads: {:.2f}".format(speed, rads), throttle_duration_sec=0.4)
         velocity = Twist()
         
         # Forward Speed
+        # Forward Speed
         velocity.linear.x = float(speed)
 
         # Rotate speed
         velocity.angular.z = float(rads)
+
+        # Side displacement speed
+        velocity.linear.y = float(side)
 
         self.velocity_publisher.publish(velocity)
     

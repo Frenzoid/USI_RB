@@ -15,11 +15,9 @@
 <launch>
 
   <!-- Syncronize timers from ROS and Coppelia -->
-  <set_parameter name="use_sim_time" value="true" />
 
   <!-- Create a launch argument. It can be used to supply values on the command line, 
        with the following syntax: ros2 launch <package_name> <launch_file> thymio_name:=thymio1 -->
-  <arg name="robomaster_name"/>
   
   <!-- 
        Start a ROS node, equivalent to: ros2 run <package_name> <executable_name> 
@@ -32,9 +30,9 @@
        The `output` option configures the node to print to the terminal, to help with debugging.
        By default, nodes launched from a launch file print their output to a log file.
   -->
-  <node pkg="usi_final" exec="movement" namespace="$(var robomaster_name)" output='screen' />
-  <node pkg="usi_final" exec="tracking" namespace="$(var robomaster_name)" output='screen' />
-  <node pkg="usi_final" exec="gbcontrol" namespace="$(var robomaster_name)" output='screen' />
+  <node pkg="usi_final" exec="movement"  output='screen' />
+  <node pkg="usi_final" exec="tracking" output='screen' />
+  <node pkg="usi_final" exec="gbcontrol"  output='screen' />
 
 
 

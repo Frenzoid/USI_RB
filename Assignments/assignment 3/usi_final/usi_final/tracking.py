@@ -25,9 +25,9 @@ class Publish_Gestures(Node):
         self.bridge = CvBridge()
 
         # Create image subscriber for /camera/image_color
-        self.create_subscription(Image, 'camera/image_color', self.image_callback, 10) #/yassine/camera/image_color
+        self.create_subscription(Image, '/camera/image_color', self.image_callback, 10) #/yassine/camera/image_color
 
-        self.movdir_publisher = self.create_publisher(String, 'cmd_command', 10)
+        self.movdir_publisher = self.create_publisher(String, '/cmd_command', 10)
 
     
     def image_callback(self, msg):
@@ -53,7 +53,7 @@ class Publish_Gestures(Node):
             left_state, right_state, left_vertical, right_vertical = self.classify_gesture(landmarks, frame.shape[1])[0]
             visibilities = self.classify_gesture(landmarks, frame.shape[1])[1]
             #if any(visibility < 0.8 for visibility in visibilities): [3]
-            if any((visibilities[0] < 0.8, visibilities[1] < 0.8, visibilities[2] < 0.2, visibilities[3] < 0.8, visibilities[4] < 0.6)):
+            if any((visibilities[0] < 0.8, visibilities[1] < 0.8, visibilities[2] < 0.2, visibilities[3] < 0.3, visibilities[4] < 0.3)):
                 cv2.putText(frame, f'NOT FULL BODY VISIBILITY', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
                             (255, 255, 255), 7)
                 self.get_logger().info(f'Bad visibilities: /n {visibilities}')

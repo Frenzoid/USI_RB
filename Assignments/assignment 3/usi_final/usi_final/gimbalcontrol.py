@@ -28,13 +28,13 @@ class PrimaryController(Node):
         self.pose = self.mp_pose.Pose()
         self.mp_drawing = mp.solutions.drawing_utils  # Utility to draw landmarks
         #create a subscriber
-        self.image_sub = self.create_subscription(Image, 'camera/image_color', self.image_callback, 10)
+        self.image_sub = self.create_subscription(Image, '/camera/image_color', self.image_callback, 10)
         self.image_sub  # prevent unused variable warning
         self.bridge = CvBridge()
         #create a publisher 
-        self.finger_pub = self.create_publisher(GimbalCommand, 'cmd_gimbal', 10)
+        self.finger_pub = self.create_publisher(GimbalCommand, '/cmd_gimbal', 10)
         #create a subscriber for the feedback
-        self.feedback_sub = self.create_subscription(JointState, 'joint_states_p', self.gimbal_call, 10)
+        self.feedback_sub = self.create_subscription(JointState, '/joint_states_p', self.gimbal_call, 10)
         
         
     def gimbal_call(self, msg):
@@ -51,7 +51,7 @@ class PrimaryController(Node):
         for i in range(len(msg.name)):
             
             # Find the name in the array.
-            if msg.name[i] == 'yassine/gimbal_joint':
+            if msg.name[i] == 'gimbal_joint':
 
                 # Save position and break loop.
                 name_pos = i
@@ -105,21 +105,26 @@ class PrimaryController(Node):
                 self.serch_human()
                 return
             
+            hmove = None
+            vmove = None
+            
             if self.state_human == 1:
                 # Move the vertical  
                 if vertical == "up" :
-                    self.move(0.0, -1.0)
+                    vmove = -1.0
                 elif vertical == "down" :
-                    self.move(0.0, 1.0)
+                    vmove = 1.0
                 else:
-                    self.move(0.0, 0.0)
+                    vmove = 0.0
                 #move horizontal
                 if horisental == "right":
-                    self.move(1.0, 0.0)
+                    hmove = 1.0
                 elif horisental == "left":
-                    self.move(-1.0, 0.0)
+                    hmove = -1.0
                 else:
-                    self.move(0.0, 0.0)
+                    hmove = 0.0
+
+                self.move(hmove, vmove)
 
 
             #cv2.putText(frame, f'vertical pos : {vertical}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 100, 0), 2)
