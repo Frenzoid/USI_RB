@@ -22,8 +22,8 @@ class PrimaryController(Node):
         self.interval_time = 0.5
 
         # Speeds at which the robot should move
-        self.velocity_speed = 0.2
-        self.direction_speed = 0.4
+        self.velocity_speed = 0.3
+        self.direction_speed = 0.6
 
         # --- Global variables ---
         # Array of movement commands received from the past 1s
@@ -95,7 +95,6 @@ class PrimaryController(Node):
         self.get_logger().info("Moving the robot with speed: {:.2f} and rads: {:.2f}".format(speed, rads), throttle_duration_sec=0.4)
         velocity = Twist()
         
-        # Forward Speed
         # Forward Speed
         velocity.linear.x = float(speed)
 

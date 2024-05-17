@@ -8,26 +8,25 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
 """
-Author: Elvi Mihai Sabau Sabau
+Author: Miotto Pietro
 """
 
 class Publish_Gestures(Node):
-    """ Get camera and publish finger number """
     def __init__(self):
         super().__init__('Primary_controllers')
 
         # Initialize MediaPipe pose solution
         self.mp_pose = mp.solutions.pose
         self.pose = self.mp_pose.Pose()
-        self.mp_drawing = mp.solutions.drawing_utils  # Utility to draw landmarks
+        self.mp_drawing = mp.solutions.drawing_utils  #draw landmarks
 
         # Initialize OpenCV bridge ( from ROS Docs )
         self.bridge = CvBridge()
 
         # Create image subscriber for /camera/image_color
-        self.create_subscription(Image, '/camera/image_color', self.image_callback, 10) #/yassine/camera/image_color
-
-        self.movdir_publisher = self.create_publisher(String, '/cmd_command', 10)
+        self.create_subscription(Image, 'camera/image_color', self.image_callback, 10) #remove yassine for real-word robomaster
+        # Create string Publisher for /camera/image_color
+        self.movdir_publisher = self.create_publisher(String, 'cmd_command', 10) #remove yassine for real-word robomaster
 
     
     def image_callback(self, msg):
@@ -39,10 +38,10 @@ class Publish_Gestures(Node):
         # Process the frame
         results = self.pose.process(frame)
 
-        # Draw the pose landmarks on the frame
-        if results.pose_landmarks:
+        
+        if results.pose_landmarks: #if landmarks are detected
 
-                        # Draw the pose annotation / landmarks on the frame.
+            # Draw the pose annotation / landmarks on the frame.
             self.mp_drawing.draw_landmarks(
             frame, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS,
             self.mp_drawing.DrawingSpec(color=(245, 117, 66), thickness=2, circle_radius=2),
@@ -50,32 +49,31 @@ class Publish_Gestures(Node):
             )
 
             landmarks = results.pose_landmarks.landmark
-            left_state, right_state, left_vertical, right_vertical = self.classify_gesture(landmarks, frame.shape[1])[0]
-            visibilities = self.classify_gesture(landmarks, frame.shape[1])[1]
-            #if any(visibility < 0.8 for visibility in visibilities): [3]
-            if any((visibilities[0] < 0.8, visibilities[1] < 0.8, visibilities[2] < 0.2, visibilities[3] < 0.3, visibilities[4] < 0.3)):
+            (left_state, right_state, left_vertical, right_vertical), visibilities = self.classify_gesture(landmarks)
+            
+            if any((visibilities[0] < 0.8, visibilities[1] < 0.8, visibilities[2] < 0.2, visibilities[3] < 0.3)):
                 cv2.putText(frame, f'NOT FULL BODY VISIBILITY', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
                             (255, 255, 255), 7)
                 self.get_logger().info(f'Bad visibilities: /n {visibilities}')
-                #[0.9982137680053711, 0.9955745339393616, 0.554503321647644, 0.9246881008148193, 0.9246881008148193]
 
             
             #  Display the frame
                 cv2.imshow('Frame', frame)
                 cv2.waitKey(1)
             else:
-                direction = 'UNKNOWN'  # Default direction
-                movement = 'UNKNOWN'  # Default movement
-                # For the left arm
+                direction = 'UNKNOWN'  
+                movement = 'UNKNOWN'  
+                
+                #left arm - Direction
                 match (left_state, left_vertical):
                     case ('Out', 'Up'):
                         direction =  '1' #'LEFT'
                     case ('Out', 'Down'):
                         direction = '-1' #'RIGHT'
-                    case ('In', _):  # The underscore (_) is a wildcard that matches anything
+                    case ('In', _):  
                         direction = '0' #'STOP'
 
-                # For the right arm
+                #right arm - Movement 
                 match (right_state, right_vertical):
                     case ('Out', 'Up'):
                         movement = '1' #'FORWARD'
@@ -93,7 +91,6 @@ class Publish_Gestures(Node):
                 self.movdir_publisher.publish(msg)
                 
 
-            #  Display the frame
                 cv2.imshow('Frame', frame)
                 cv2.waitKey(1)
         else:
@@ -103,11 +100,9 @@ class Publish_Gestures(Node):
             cv2.imshow('Frame', frame)
             cv2.waitKey(1)
 
+    def classify_gesture(self, landmarks):
 
-    # Function to count fingers up
-    def classify_gesture(self, landmarks, width):
-
-    # Extract necessary landmarks
+        # Extract necessary landmarks
         left_shoulder = landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value]
         right_shoulder = landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
         left_wrist = landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value]
@@ -119,16 +114,17 @@ class Publish_Gestures(Node):
         left_wrist_visibility = left_wrist.visibility
         right_wrist_visibility = right_wrist.visibility
 
-        # Individual hand states
+        #wrist.x w.r.t. shoulder.x - In/Out
         left_hand_state = "In" if left_wrist.x < left_shoulder.x else "Out"
                             #IN                                        #OUT
         right_hand_state = "In" if right_wrist.x > right_shoulder.x else "Out"
                             # IN                                        #OUT
-        # Vertical position of hands
+
+        #wrist.y w.r.t. shoulder.y - Up/Down
         left_vertical = "Up" if left_wrist.y < left_shoulder.y else "Down"
         right_vertical = "Up" if right_wrist.y < right_shoulder.y else "Down"
 
-        return ([left_hand_state, right_hand_state, left_vertical, right_vertical],[left_shoulder_visibility,right_shoulder_visibility, left_wrist_visibility, right_wrist_visibility, right_wrist.visibility])
+        return ([left_hand_state, right_hand_state, left_vertical, right_vertical],[left_shoulder_visibility,right_shoulder_visibility, left_wrist_visibility, right_wrist_visibility])
         
     
 # --- Main ---
