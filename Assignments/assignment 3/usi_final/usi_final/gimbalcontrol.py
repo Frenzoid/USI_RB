@@ -12,7 +12,7 @@ from robomaster_msgs.msg import GimbalCommand
 
 
 """
-Author: Elvi Mihai Sabau Sabau
+Author: Yassine Oueslati
 """
 
 class PrimaryController(Node):
